@@ -4,6 +4,8 @@ import torch
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score, roc_auc_score
 
 import numpy as np
+import argparse
+import os
 
 from utils.dataloader import *
 from utils.loss_function import *
@@ -98,5 +100,13 @@ def main(args):
 
 if __name__ == '__main__':
 
-    args = JsonConfig('hparas/efficientgcn_pie_trilabel.json')
-    main(args)
+    parser = argparse.ArgumentParser(description='IntentGCN')
+
+    parser.add_argument('--ckps_path', type=str, help='path to load checkpoints')
+    args = parser.parse_args()
+
+    config_path = os.path.join(args.ckps_path, 'config.json')
+    config = JsonConfig(config_path)
+    config.Model.load_model_path = os.path.join(args.ckps_path, 'model.pkl')
+
+    main(config)
