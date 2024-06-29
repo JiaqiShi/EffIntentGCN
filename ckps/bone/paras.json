@@ -1,0 +1,46 @@
+{
+  "Data": {
+    "path": "./data/jaad_beh_data.pkl",
+    "features": "dirvec2d",
+    "representation": "skeleton",
+    "device_index": 0
+  },
+  "Optim": {
+    "batch_size": 64,
+    "trim": false
+  },
+  "Model": {
+    "model": "intentgcn",
+    "out_channels": 2,
+    "load_model_path": null,
+    "sub_model_paths": null,
+    "sub_model_detach": true
+  },
+  "GCN_paras": {
+    "layer_num": 4,
+    "channels": "8",
+    "stride_2_layer_index": "5,8",
+    "dropout": 0.2,
+    "attention_start_layer": 2,
+    "adap_graph": true,
+    "attention": true,
+    "act": "relu",
+    "use_depthwise_separable_conv_spatial": true,
+    "use_low_rank_spatial": true,
+    "rank_factor_spatial": 0.5,
+    "use_expansion_conv_spatial": true,
+    "expansion_factor_spatial": 2.5,
+    "use_low_rank_adap": true,
+    "rank_factor_adap": 0.7,
+    "use_depthwise_separable_conv_t": true,
+    "use_low_rank_t": true,
+    "rank_factor_t": 0.5,
+    "use_expansion_conv_t": true,
+    "expansion_factor_t": 3.0
+  },
+  "Graph_paras": {
+    "strategy": "part",
+    "parts_num": 6
+  },
+  "Comment": ""
+}
