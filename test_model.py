@@ -9,7 +9,7 @@ import os
 
 from utils.dataloader import *
 from utils.loss_function import *
-from model.intentgcn import IntentGCN
+from model.intentgcn import IntentGCN, Multi_LaterFusion_PD
 
 def get_param_num(model, require_grad_param=True):
     if require_grad_param:
@@ -53,17 +53,41 @@ def main(args):
 
     print(f'Input shape: {input_shape}')
 
-    Model = IntentGCN
+    if args.Model.model == 'intentgcn':
 
-    args.GCN_paras = {k:v for k,v in args.GCN_paras.items() if k != '__name'}
-    if args.is_attr_available('Graph_paras'):
-        graph_args = {k:v for k,v in args.Graph_paras.items() if k != '__name'}
-    else:
-        graph_args = None
-    model = Model(input_shape, args.Model.out_channels, graph_args, **args.GCN_paras).to(device)
+        args.GCN_paras = {k:v for k,v in args.GCN_paras.items() if k != '__name'}
+        if args.is_attr_available('Graph_paras'):
+            graph_args = {k:v for k,v in args.Graph_paras.items() if k != '__name'}
+        else:
+            graph_args = None
+        model = IntentGCN(input_shape, args.Model.out_channels, graph_args, **args.GCN_paras)
+    
+    elif args.Model.model == 'multi_laterfusion_pd':
+        assert len(args.Model.sub_model_paths) == len(args.Data.features)
+        assert isinstance(args.Model.sub_model_paths, list)
 
+        submodels = []
+        for i, path in enumerate(args.Model.sub_model_paths):
+            assert os.path.exists(path)
+
+            json_path = [os.path.join(path, file) for file in os.listdir(path) if file.endswith('.json')][0]
+
+            submodel_args = JsonConfig(json_path)
+            GCN_paras = {k:v for k,v in submodel_args.GCN_paras.items() if k != '__name'}
+            if submodel_args.is_attr_available('Graph_paras'):
+                graph_args = {k:v for k,v in submodel_args.Graph_paras.items() if k != '__name'}
+            else:
+                graph_args = None
+            submodel = IntentGCN(input_shape[i], submodel_args.Model.out_channels, graph_args, **GCN_paras)
+            
+            submodel.load_state_dict(torch.load(os.path.join(path, 'model.pkl')))
+            submodels.append(submodel)
+
+        model = Multi_LaterFusion_PD(input_shape, args.Model.out_channels, submodels, args.Model.sub_model_detach, **args.Model_paras.to_dict())
+
+    model = model.to(device)
     assert args.Model.load_model_path is not None, 'Please specify the model path to load'
-    model.load_state_dict(torch.load(args.Model.load_model_path))
+    model.load_state_dict(torch.load(args.Model.load_model_path, map_location=device))
     print(f'[Info] Load model from {args.Model.load_model_path}')
     print(f'[Info] Model parameters: {get_param_num(model)}')
 

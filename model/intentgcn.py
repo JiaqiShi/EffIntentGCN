@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 from model.graph import Graph
 from model.attention import Attention_Layer
+from model.fusion import MultiFeatureFusion
 
 class IntentGCN(nn.Module):
     def __init__(self,
@@ -101,7 +102,6 @@ class IntentGCN(nn.Module):
             x, lengths = x
         x = x.float()
 
-        # N, T, V, C -> N, C, T, V
         x = x.permute(0, 3, 1, 2).contiguous()
 
         N, C, T, V = x.size()
@@ -118,6 +118,29 @@ class IntentGCN(nn.Module):
         x = self.fcn(hiddens)
 
         return x
+    
+    def get_hidden(self, x):
+
+        if type(x) == list:
+            x, lengths = x
+        x = x.float()
+
+        x = x.permute(0, 3, 1, 2).contiguous()
+
+        N, C, T, V = x.size()
+
+        x = x.permute(0, 3, 1, 2).contiguous().view(N, V * C, T)
+        x = self.bn(x)
+        x = x.view(N, V, C, T).permute(0, 2, 3, 1).contiguous()
+
+        for block, importance in zip(self.blocks, self.edge_importance):
+            x = block(x, self.A * importance)
+
+        hiddens = F.avg_pool2d(x, x.size()[2:]).view(x.size(0), -1)
+
+        x = self.fcn(hiddens)
+
+        return x, hiddens
     
 class GraphConvBlock(nn.Module):
     def __init__(self,
@@ -492,3 +515,65 @@ class HardSwish(nn.Module):
     def forward(self, x):
         inner = nn.functional.relu6(x + 3.).div_(6.)
         return x.mul_(inner) if self.inplace else x.mul(inner)
+    
+class Multi_LaterFusion_PD(nn.Module):
+    # pose2d, dirvec
+    def __init__(self,
+                 input_shape,
+                 num_class,
+                 sub_models,
+                 sub_model_detach=False,
+                 fusion_method='concat',
+                 fusion_dim=32,
+                 **kwargs):
+        super().__init__()
+
+        feature_num = 2
+
+        self.sub_model_detach = sub_model_detach
+
+        pose_model, dirvec_model = sub_models
+
+        self.pose_encoder = pose_model
+        self.dirvec_encoder = dirvec_model
+
+        self.pose_trans_layers = nn.Linear(self.pose_encoder.output_channels[-1], fusion_dim)
+        self.dirvec_trans_layers = nn.Linear(self.dirvec_encoder.output_channels[-1], fusion_dim)
+
+        self.fusion_method = fusion_method
+        self.fusion_layer = MultiFeatureFusion(fusion_method, fusion_dim, feature_num)
+
+        self.multi_fcn = nn.Linear(fusion_dim, num_class)
+
+    def get_model_name(self):
+        return self.__class__.__name__
+
+    def forward(self, *inputs):
+
+        pose, dirvec = inputs
+        if type(pose) == list:
+            pose, lengths = pose
+        if type(dirvec) == list:
+            dirvec, lengths = dirvec
+
+        pose = pose.float()
+        dirvec = dirvec.float()
+
+        # N, C
+        _, pose_hidden = self.pose_encoder.get_hidden(pose)
+        _, dirvec_hidden = self.dirvec_encoder.get_hidden(dirvec)
+
+        pose_f = self.pose_trans_layers(pose_hidden)
+        dirvec_f = self.dirvec_trans_layers(dirvec_hidden)
+
+        if self.sub_model_detach:
+            pose_f = pose_f.detach()
+            dirvec_f = dirvec_f.detach()
+        
+        pose_f, dirvec_f = [f.unsqueeze(1) for f in [pose_f, dirvec_f]]
+
+        hiddens = self.fusion_layer(pose_f, dirvec_f).squeeze(1)
+
+        out = self.multi_fcn(hiddens)
+
+        return out

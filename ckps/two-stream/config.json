@@ -1,0 +1,30 @@
+{
+  "Data": {
+    "path": "./data/jaad_beh_data.pkl",
+    "features": [
+      "pose2d",
+      "dirvec2d"
+    ],
+    "representation": "skeleton",
+    "device_index": 0
+  },
+  "Optim": {
+    "batch_size": 64,
+    "trim": false
+  },
+  "Model": {
+    "model": "multi_laterfusion_pd",
+    "out_channels": 2,
+    "load_model_path": null,
+    "sub_model_paths": [
+      "./ckps/skeleton",
+      "./ckps/bone"
+    ],
+    "sub_model_detach": false
+  },
+  "Model_paras": {
+    "fusion_method": "self_attention_residual",
+    "fusion_dim": 64
+  },
+  "Comment": ""
+}
