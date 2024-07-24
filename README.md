@@ -19,3 +19,9 @@ To test on the bone stream, please run
 ```
 python test_model.py --ckps_path ckps/bone
 ```
+
+To test the two stream model, please run
+
+```
+python test_model.py --ckps_path ckps/two-stream
+```
