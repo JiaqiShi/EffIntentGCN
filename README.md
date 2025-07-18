@@ -5,6 +5,7 @@ Test code for EffIntentGCN: An Efficient Graph Convolutional Network for Skeleto
 
 ## Data
 Please get the skeleton data from [Pedestrian Crossing Action Prediction Benchmark](https://github.com/ykotseruba/PedestrianActionBenchmark).
+
 Preprocessing Settings:
    - `Observation length: 32 frames` 
    - `Frame overlap: 1`
